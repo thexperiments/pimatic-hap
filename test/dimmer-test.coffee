@@ -6,6 +6,8 @@ env =
   logger:
     debug: (stmt) ->
       grunt.log.writeln stmt
+    error: (stmt) ->
+      grunt.log.writeln stmt
 DimmerAccessory = require("../accessories/dimmer")(env)
 hap = require 'hap-nodejs'
 Service = hap.Service
@@ -19,6 +21,7 @@ class TestDimmer extends require('events').EventEmitter
 
   changeDimlevelTo: (dimlevel) ->
     @_dimlevel = dimlevel
+    @emit 'dimlevel', dimlevel
     return Promise.resolve()
 
 class TestAccessory extends DimmerAccessory
@@ -41,23 +44,30 @@ describe "dimmer", ->
 
   describe "changing Characteristic.Brightness", ->
 
-    it "should set dimlevel", ->
+    it "should set dimlevel", (done) ->
+      accessory.queue.onComplete = () ->
+        assert device._dimlevel is 20
+        done()
       accessory.changeBrightness(20)
 
-      assert device._dimlevel is 20
-
-    it "should not change dimlevel again after setting to same value", ->
+    it "should not change dimlevel again after setting to same value", (done) ->
+      accessory.queue.onComplete = () ->
+        done()
+      accessory._dimlevel = 5
+      device.changeDimlevelTo = (dimlevel) ->
+        assert false
       accessory.changeBrightness(5)
-      device._dimlevel = null
-      accessory.changeBrightness(5)
-      assert device._dimlevel is null
 
-    it "should set the state of switch to on when dimlevel > 0", ->
+    it "should set the state of switch to on when dimlevel > 0", (done) ->
+      accessory.queue.onComplete = () ->
+        assert accessory._state is on
+        done()
       accessory._state = off
       accessory.changeBrightness(10)
-      assert accessory._state is on
 
-    it "should set the state of switch to off when dimlevel = 0", ->
+    it "should set the state of switch to off when dimlevel = 0", (done) ->
+      accessory.queue.onComplete = () ->
+        assert accessory._state is off
+        done()
       accessory._state = on
       accessory.changeBrightness(0)
-      assert accessory._state is off

@@ -6,6 +6,8 @@ env =
   logger:
     debug: (stmt) ->
       grunt.log.writeln stmt
+    error: (stmt) ->
+      grunt.log.writeln stmt
 SwitchAccessory = require("../accessories/switch")(env)
 hap = require 'hap-nodejs'
 Service = hap.Service
@@ -27,8 +29,8 @@ class TestSwitch extends require('events').EventEmitter
     @_state = off
     return Promise.resolve()
 
-  fireChange: ->
-    @emit 'state', on
+  fireChange: (state) ->
+    @emit 'state', state
 
 class TestAccessory extends SwitchAccessory
 
@@ -50,54 +52,72 @@ describe "switch", ->
 
   describe "changing Characteristic.On", ->
 
-    it "should turn device on if set to true", ->
+    it "should turn device on if set to true", (done) ->
+      accessory.queue.onComplete = () ->
+        assert device._state is on
+        done()
       accessory.toggle(true)
 
-      assert device._state is on
-
-    it "should turn device off if set to false", ->
+    it "should turn device off if set to false", (done) ->
+      accessory.queue.onComplete = () ->
+        assert device._state is off
+        done()
       accessory.toggle(false)
 
-      assert device._state is off
-
-    it "should not turn device on again after being turned on", ->
+    it "should not turn device on again after being turned on", (done) ->
+      accessory.queue.onComplete = () ->
+        done()
+      accessory._state = true
+      device.turnOn = () ->
+        return Promise.resolve().then(() -> assert false)
       accessory.toggle(true)
-      device._state = null
-      accessory.toggle(true)
-      assert device._state is null
 
-    it "should return state when get event is fired", ->
-      assertState = (state) ->
+    it "should return state when get event is fired", (done) ->
+      accessory.queue.onComplete = () ->
+        done()
+      assertState = (state) =>
         accessory.toggle(state)
-        accessory.getService(Service.Switch)
-          .getCharacteristic(Characteristic.On)
-          .getValue((error, value) ->
-            assert error is null
-            assert value is state
-          )
-
+        accessory.queue.addNow(() ->
+          accessory.getService(Service.Switch)
+            .getCharacteristic(Characteristic.On)
+            .getValue((error, value) ->
+              assert error is null
+              assert value is state
+            )
+        )
       assertState(true)
       assertState(false)
 
-    it "should handle state event and set Characteristic.On", ->
-      device.fireChange()
-      assert device._state is on
-      device._state = null
-      device.fireChange()
-      assert device._state is null
+    it "should handle state event and set Characteristic.On", (done) ->
+      accessory.queue.onComplete = () ->
+        assert device._state is on
+        done()
+      device.fireChange(on)
 
-    it "should handle setting value to 1", ->
-      accessory._state = true
-      accessory.toggle(1)
-      assert device._state is null
+    it "should handle setting value from 0 to 1", (done) ->
+      accessory.queue.onComplete = () ->
+        assert device._state is on
+        done()
       accessory._state = false
       accessory.toggle(1)
-      assert device._state is true
 
-    it "should handle setting value to 0", ->
-      accessory._state = false
-      accessory.toggle(0)
-      assert device._state is null
+    it "should handle setting value from 1 to 1", (done) ->
+      accessory.queue.onComplete = () ->
+        assert device._state is null
+        done()
+      accessory._state = true
+      accessory.toggle(1)
+
+    it "should handle setting value from 1 to 0", (done) ->
+      accessory.queue.onComplete = () ->
+        assert device._state is off
+        done()
       accessory._state = true
       accessory.toggle(0)
-      assert device._state is false
+
+    it "should handle setting value from 0 to 0", (done) ->
+      accessory.queue.onComplete = () ->
+        assert device._state is null
+        done()
+      accessory._state = false
+      accessory.toggle(0)

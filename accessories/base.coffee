@@ -5,6 +5,7 @@ module.exports = (env) ->
   Service = hap.Service
   Characteristic = hap.Characteristic
   uuid = require ('hap-nodejs/lib/util/uuid')
+  Queue = require 'bluebird-queue'
 
   # base class for all homekit accessories in pimatic
   class BaseAccessory extends Accessory
@@ -14,9 +15,16 @@ module.exports = (env) ->
     }
 
     hapConfig: null
+    queue = null
 
     constructor: (device) ->
       @hapConfig = device.config.hap
+      @queue = new Queue({
+        # make sure that asynchronous requests are processed synchronously
+        concurrency: 1,
+        onError: (error) -> env.logger.error(
+          device.name + ': error when working on request queue. Message: ' + error.message)
+      })
       serialNumber = uuid.generate('pimatic-hap:accessories:' + device.id)
       super(device.name, serialNumber)
 

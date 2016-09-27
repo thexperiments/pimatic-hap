@@ -19,18 +19,20 @@ module.exports = (env) ->
       @addService(service, device.name)
         .getCharacteristic(Characteristic.On)
         .on 'set', (value, callback) =>
-          # HomeKit uses 0 or 1, must be converted to bool
-          if value is 1 then value = true
-          if value is 0 then value = false
-          if value is @_state
-            env.logger.debug 'value ' + value + ' equals current state of ' +
-              device.name + '. Not switching.'
-            callback()
-            return
-          env.logger.debug 'switching device ' + device.name + ' to ' + value
-          @_state = value
-          promise = if value then device.turnOn() else device.turnOff()
-          @handleVoidPromise(promise, callback)
+          @queue.addNow( =>
+            # HomeKit uses 0 or 1, must be converted to bool
+            if value is 1 then value = true
+            if value is 0 then value = false
+            if value is @_state
+              env.logger.debug 'value ' + value + ' equals current state of ' +
+                device.name + '. Not switching.'
+              callback()
+              return
+            env.logger.debug 'switching device ' + device.name + ' to ' + value
+            @_state = value
+            promise = if value then device.turnOn() else device.turnOff()
+            @handleVoidPromise(promise, callback)
+          )
 
       @getService(service)
         .getCharacteristic(Characteristic.On)
@@ -43,16 +45,16 @@ module.exports = (env) ->
 
     # default identify method on switches turns the switch on and off two times
     identify: (device, paired, callback) =>
-      # make sure it's off, then turn on and off twice
+      delay = 500
       promise = device.getState()
         .then( (state) =>
-          device.turnOff()
-          .then( => device.turnOn() )
-          .then( => device.turnOff() )
-          .then( => device.turnOn() )
+          device.turnOff().delay(delay)
+          .then( => device.turnOn().delay(delay) )
+          .then( => device.turnOff().delay(delay) )
+          .then( => device.turnOn().delay(delay) )
           .then( =>
             # recover initial state
-            device.turnOff() if not state
+            device.turnOff().delay(delay) if not state
           )
         )
       @handleVoidPromise(promise, callback)

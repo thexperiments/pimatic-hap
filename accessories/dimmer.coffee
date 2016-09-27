@@ -29,15 +29,17 @@ module.exports = (env) ->
       @getService(Service.Lightbulb)
         .getCharacteristic(Characteristic.Brightness)
         .on 'set', (value, callback) =>
-          if @_dimlevel is value
-            env.logger.debug 'value ' + value +
-              ' equals current dimlevel of ' + device.name  + '. Not changing.'
-            callback()
-            return
-          env.logger.debug 'changing dimlevel of ' + device.name + ' to ' + value
-          @_dimlevel = value
-          @_state = value > 0
-          @handleVoidPromise(device.changeDimlevelTo(value), callback)
+          @queue.addNow( =>
+            if @_dimlevel is value
+              env.logger.debug 'value ' + value +
+                ' equals current dimlevel of ' + device.name  + '. Not changing.'
+              callback()
+              return
+            env.logger.debug 'changing dimlevel of ' + device.name + ' to ' + value
+            @_dimlevel = value
+            @_state = value > 0
+            @handleVoidPromise(device.changeDimlevelTo(value), callback)
+          )
 
     getDefaultService: =>
       return Service.Lightbulb

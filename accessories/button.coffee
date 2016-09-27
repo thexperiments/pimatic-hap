@@ -20,8 +20,10 @@ module.exports = (env) ->
       @addService(Service.Switch, device.name)
         .getCharacteristic(Characteristic.On)
         .on 'set', (value, callback) =>
-          if value is 1
-            @handleVoidPromise(device.buttonPressed(button.id)
-              .then( => setTimeout(reset, 250)), callback)
-          else
-            callback()
+          @queue.addNow( =>
+            if value is 1
+              @handleVoidPromise(device.buttonPressed(button.id)
+                .then( => setTimeout(reset, 250)), callback)
+            else
+              callback()
+          )

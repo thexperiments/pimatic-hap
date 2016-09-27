@@ -24,7 +24,8 @@
   },
   "dependencies": {
     "hap-nodejs": "0.3.2",
-    "color-convert": "1.0.0"
+    "color-convert": "1.0.0",
+    "bluebird-queue": "0.0.8"
   },
   "devDependencies": {
     "blanket": "^1.2.2",
